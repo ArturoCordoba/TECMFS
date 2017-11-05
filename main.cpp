@@ -1,32 +1,61 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Network.hpp>
+#include <iostream>
 
-int main()
+#define PORT 2000
+
+using namespace std;
+
+int main(int argc, char const *argv[])
 {
-    sf::RenderWindow window(sf::VideoMode(640, 480), "SFML Application");
+    ///IP Address: 10.0.2.15
+    sf::IpAddress IP = sf::IpAddress::getLocalAddress();
+    cout << IP << "\n" << endl;
 
-    sf::CircleShape shape;
+    sf::TcpListener listener;
+    sf::SocketSelector selector;
+    vector<sf::TcpSocket*> clients;
 
-    shape.setRadius(40.f);
+    listener.listen(PORT);
+    selector.add(listener);
 
-    shape.setPosition(100.f, 100.f);
-
-    shape.setFillColor(sf::Color::Cyan);
-
-    while (window.isOpen())
+    bool done = false;
+    while(!done)
     {
-        sf::Event event;
-
-        while (window.pollEvent(event))
+        ///Clients
+        if(selector.wait())
         {
-            if (event.type == sf::Event::Closed)
-                window.close();
+            if(selector.isReady(listener))
+            {
+                sf::TcpSocket *socket = new sf::TcpSocket;
+                listener.accept(*socket);
+                sf::Packet packet;
+                string id;
+                if(socket->receive(packet) == sf::Socket::Done)
+                    packet>>id;
 
+                cout << id << " se ha conectado al TECMFS\n" << endl;
+                clients.push_back(socket);
+                selector.add(*socket);
+            }//if(selector.isReady(listener))
+            else
+            {
+                for(int i=0; i<clients.size(); i++)
+                {
+                    if(selector.isReady(*clients[i]))
+                    {
+                        sf::Packet receivePacket, sendPacket;
+                        if(clients[i]->receive(receivePacket) == sf::Socket::Done)
+                        {
+                            ///Actions
+                        }
+                    }
+                }
+            }
         }
-        window.clear();
 
-        window.draw(shape);
+        //for(vector<sf::TcpSocket*>::iterator it = clients.begin(); it != clients.end(); it++)
+        //    delete *it;
 
-        window.display();
-
-    }
+    }//while(!done)
 }
