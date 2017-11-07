@@ -8,13 +8,13 @@ using namespace std;
 
 int main(int argc, char const *argv[])
 {
-    ///IP Address: 10.0.2.15
-    sf::IpAddress IP = sf::IpAddress::getLocalAddress();
+    sf::IpAddress IP = "127.0.0.1";
     cout << IP << "\n" << endl;
 
     sf::TcpListener listener;
     sf::SocketSelector selector;
     vector<sf::TcpSocket*> clients;
+    vector<sf::TcpSocket*> disks;
 
     listener.listen(PORT);
     selector.add(listener);
@@ -22,7 +22,7 @@ int main(int argc, char const *argv[])
     bool done = false;
     while(!done)
     {
-        ///Clients
+
         if(selector.wait())
         {
             if(selector.isReady(listener))
@@ -31,15 +31,21 @@ int main(int argc, char const *argv[])
                 listener.accept(*socket);
                 sf::Packet packet;
                 string id;
-                if(socket->receive(packet) == sf::Socket::Done)
-                    packet>>id;
-
-                cout << id << " se ha conectado al TECMFS\n" << endl;
-                clients.push_back(socket);
-                selector.add(*socket);
-            }//if(selector.isReady(listener))
+                if (socket->receive(packet) == sf::Socket::Done)
+                    packet >> id;
+                if (id == "Disk") {
+                    cout << "Se ha identificado un disco nuevo\n" << endl;
+                    disks.push_back(socket);
+                    selector.add(*socket);
+                }else{
+                    cout << id << " se ha conectado al TECMFS\n" << endl;
+                    clients.push_back(socket);
+                    selector.add(*socket);
+                }
+            }
             else
             {
+                ///Clients
                 for(int i=0; i<clients.size(); i++)
                 {
                     if(selector.isReady(*clients[i]))
@@ -47,7 +53,19 @@ int main(int argc, char const *argv[])
                         sf::Packet receivePacket, sendPacket;
                         if(clients[i]->receive(receivePacket) == sf::Socket::Done)
                         {
-                            ///Actions
+                            ///Clients Actions
+                        }
+                    }
+                }
+                ///Disks
+                for(int i=0; i<disks.size(); i++)
+                {
+                    if(selector.isReady(*disks[i]))
+                    {
+                        sf::Packet receivePacket, sendPacket;
+                        if(disks[i]->receive(receivePacket) == sf::Socket::Done)
+                        {
+                            ///Disks Actions
                         }
                     }
                 }
