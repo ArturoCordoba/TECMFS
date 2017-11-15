@@ -1,32 +1,30 @@
-#include <SFML/Graphics.hpp>
 #include <SFML/Network.hpp>
 #include <iostream>
+#include "VideoHandler.h"
 
-#define PORT 2000
+#define PORT 2001
 
 using namespace std;
 
-int main(int argc, char const *argv[])
-{
-    sf::IpAddress IP = "127.0.0.1";
-    cout << IP << "\n" << endl;
+typedef unsigned char byte;
 
+int main(int argc, char const *argv[]) {
+    Controller controller = Controller();
     sf::TcpListener listener;
     sf::SocketSelector selector;
-    vector<sf::TcpSocket*> clients;
-    vector<sf::TcpSocket*> disks;
+
+    LinkedList <sf::TcpSocket*>* clients = Singleton::getClients();
+    LinkedList<sf::TcpSocket*>* disks = Singleton::getDisks();
 
     listener.listen(PORT);
     selector.add(listener);
 
     bool done = false;
-    while(!done)
-    {
+    while(!done) {
+        if(selector.wait()) {
 
-        if(selector.wait())
-        {
-            if(selector.isReady(listener))
-            {
+            //Se aceptan nuevos clientes
+            if(selector.isReady(listener)) {
                 sf::TcpSocket *socket = new sf::TcpSocket;
                 listener.accept(*socket);
                 sf::Packet packet;
@@ -34,46 +32,61 @@ int main(int argc, char const *argv[])
                 if (socket->receive(packet) == sf::Socket::Done)
                     packet >> id;
                 if (id == "Disk") {
-                    cout << "Se ha identificado un disco nuevo\n" << endl;
-                    disks.push_back(socket);
+                    cout << "Se ha identificado un disco nuevo" << endl;
+                    disks->insertAtEnd(socket);
                     selector.add(*socket);
-                }else{
-                    cout << id << " se ha conectado al TECMFS\n" << endl;
-                    clients.push_back(socket);
+
+                    if(disks->getSize() == 4)
+                        DataBase::createTable();
+
+                } else {
+                    cout << "Se ha conectado un nuevo cliente!" << endl;
+                    clients->insertAtEnd(socket);
                     selector.add(*socket);
                 }
-            }
-            else
-            {
+
+            //Se verifica si algun cliente hizo una solicitud
+            } else if(disks->getSize() == 4){
                 ///Clients
-                for(int i=0; i<clients.size(); i++)
-                {
-                    if(selector.isReady(*clients[i]))
-                    {
+                for(int i=0; i<clients->getSize(); i++) {
+                    if(selector.isReady(*clients->getElement(i)->getData())) {
                         sf::Packet receivePacket, sendPacket;
-                        if(clients[i]->receive(receivePacket) == sf::Socket::Done)
-                        {
+                        if(clients->getElement(i)->getData()->receive(receivePacket) == sf::Socket::Done) {
                             ///Clients Actions
-                        }
-                    }
-                }
-                ///Disks
-                for(int i=0; i<disks.size(); i++)
-                {
-                    if(selector.isReady(*disks[i]))
-                    {
-                        sf::Packet receivePacket, sendPacket;
-                        if(disks[i]->receive(receivePacket) == sf::Socket::Done)
-                        {
-                            ///Disks Actions
+                            std::string stringAction;
+                            receivePacket >> stringAction;
+                            char* action = (char*) stringAction.c_str();
+
+                            //Se realiza una solicitud de almacenaje
+                            if(strcmp(action, "saveVideo") == 0){
+                                std::string fileName;
+                                receivePacket >> fileName;
+                                std::vector<byte> video = VideoHandler::receiveVideo(clients->getElement(i)->getData());
+                                controller.sendParts(video, fileName);
+
+                            //Se realiza una solicitud de obtencion de un video
+                            } else if(strcmp(action, "getVideo") == 0){
+                                std::string fileName;
+                                receivePacket >> fileName;
+                                std::string video = controller.getVideo(fileName);
+                                sf::Packet responsePacket;
+                                responsePacket << video;
+                                responsePacket << DataBase::getVideoData(fileName).getElement(1)->getData();
+                                clients->getElement(i)->getData()->send(responsePacket);
+
+                            //Se realiza una solicitud de obtencion de la tabla de la base de datos
+                            } else if(strcmp(action, "getTable") == 0){
+                                std::string table = DataBase::getTable();
+                                sf::Packet responsePacket;
+                                responsePacket << table;
+                                clients->getElement(i)->getData()->send(responsePacket);
+                            }
                         }
                     }
                 }
             }
         }
+    }
 
-        //for(vector<sf::TcpSocket*>::iterator it = clients.begin(); it != clients.end(); it++)
-        //    delete *it;
-
-    }//while(!done)
+    return 0;
 }
