@@ -24,6 +24,8 @@ public:
 
     static LinkedList<std::string> getVideoData(std::string name);
 
+    static std::string getPart(int disk);
+
 private:
     static void send(std::string content, std::string action);
 };

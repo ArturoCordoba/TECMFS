@@ -31,12 +31,17 @@ public:
     }
 
     /// Metodo para recuperar una parte del archivo utilizando la paridad del mismo
-    /// \param partA Parte del archivo
-    /// \param partB Parte del archivo
-    /// \param parity Paridad del archivo
+    /// \param partAString Parte del archivo
+    /// \param partBString Parte del archivo
+    /// \param parityString Paridad del archivo
     /// \return Vector con la parte del archivo que se perdio
-    static std::vector<byte> recoverData(std::vector<byte> partA, std::vector<byte> partB, std::vector<byte> parity) {
+    static std::string recoverData(std::string partAString, std::string partBString, std::string parityString) {
         std::vector<byte> vectorFault;
+
+        //Se transforman los strings a vectores
+        std::vector<byte> partA(partAString.begin(), partAString.end());
+        std::vector<byte> partB(partBString.begin(), partBString.end());
+        std::vector<byte> parity(parityString.begin(), parityString.end());
 
         //Por cada byte del vector se utiliza el XOR para obtener la parte perdida
         for(int i = 0; i < parity.size(); i++) {
@@ -49,7 +54,9 @@ public:
             }
         }
 
-        return vectorFault;
+        //Se transforma el vector obtenido en un string
+        std::string reconstructedPart(vectorFault.begin(), vectorFault.end());
+        return reconstructedPart;
     }
 };
 

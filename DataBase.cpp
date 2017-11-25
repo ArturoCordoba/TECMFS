@@ -7,7 +7,7 @@
 
 ///Metodo para crear la tabla de la base de datos
 void DataBase::createTable() {
-    std::string content = "filename;extension;size;part1;part2;part3;parity\n";
+    std::string content = "filename;extension;size;part1;part2;part3;parity/";
     send(content, "save");
 }
 
@@ -16,17 +16,20 @@ void DataBase::createTable() {
 void DataBase::addToTable(std::string content) {
     std::string dataBase = getTable();
     dataBase.append(content);
-    dataBase.append("\n");
+    dataBase.append("/");
     send(dataBase, "save");
 }
 
 /// Metodo para obtener las partes de la tabla almacenadas en los discos y reconstruir la tabla
 /// \return String con la tabla
 std::string DataBase::getTable() {
-    std::string dataBase = "";
+    std::string part1 = "";
+    std::string part2 = "";
+    std::string part3 = "";
+    std::string parity = "";
 
     //Se solicita a cada uno de los discos la parte de la tabla que almacenan
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 4; ++i) {
         sf::Packet packet;
         packet << "database";
         packet << "get";
@@ -37,16 +40,32 @@ std::string DataBase::getTable() {
         //Se espera la respuesta del disco
         sf::Packet receivePacket;
         std::string receiveMessage;
-        while(true){
         if (disk->receive(receivePacket) == sf::Socket::Done) {
             receivePacket >> receiveMessage;
-            dataBase.append(receiveMessage);
-            break;
+            if(i == 0){
+                part1 = receiveMessage;
+            } else if(i == 1){
+                part2 = receiveMessage;
+            } else if(i == 2){
+                part3 = receiveMessage;
+            } else if(i == 3){
+                parity = receiveMessage;
             }
         }
     }
 
-    return dataBase;
+    //Casos en los que uno de los discos tuvo un fallo
+    if(part1.size() == 0){
+        part1 = FaultTolerance::recoverData(part2, part3, parity);
+    } else if(part2.size() == 0){
+        part2 = FaultTolerance::recoverData(part1, part3, parity);
+    } else if(part3.size() == 0){
+        part3 = FaultTolerance::recoverData(part1, part2, parity);
+    }
+
+    part1 += (part2 + part3);
+
+    return part1;
 }
 
 /// Metodo para almacenar la tabla en los discos
@@ -116,7 +135,7 @@ LinkedList<std::string> DataBase::splitString(std::string string, char *splitCha
 /// \return LinkedList con la informacion del video, si esta no se encuentra se retorna una lista vacia
 LinkedList<std::string> DataBase::getVideoData(std::string name) {
     //Se obtiene una lista con todos los videos almacenados en la tabla
-    LinkedList<std::string> rows = splitString(getTable(), "\n");
+    LinkedList<std::string> rows = splitString(getTable(), "/");
 
     //Se busca la informacion del video solicitado utilizando su nombre
     for (int i = 0; i < rows.getSize(); ++i) {
@@ -130,4 +149,61 @@ LinkedList<std::string> DataBase::getVideoData(std::string name) {
     }
 
     return LinkedList<std::string>();
+}
+
+/// Metodo para obtener una de las partes de la base de datos, con el objetivo de restaurar la informacion de un disco
+/// \param disk Numero de disco que se esta restaurando
+/// \return String con la parte que le corresponde almacenar al disco en cuestion
+std::string DataBase::getPart(int disk) {
+    std::string part1 = "";
+    std::string part2 = "";
+    std::string part3 = "";
+    std::string parity = "";
+
+    //Se solicita cada una de las partes de la tabla a los otros discos
+    for (int i = 0; i < 4; ++i) {
+        if (i != disk) {
+            sf::Packet packet;
+            packet << "database";
+            packet << "get";
+
+            sf::TcpSocket *disk = Singleton::getDisks()->getElement(i)->getData();
+            disk->send(packet);
+
+            sf::Packet receivePacket;
+            std::string receiveMessage;
+            if (disk->receive(receivePacket) == sf::Socket::Done)
+                receivePacket >> receiveMessage;
+
+            if(i == 0){
+                part1 = receiveMessage;
+            } else if (i == 1) {
+                part2 = receiveMessage;
+            } else if (i == 2) {
+                part3 = receiveMessage;
+            } else if (i == 3) {
+                parity = receiveMessage;
+            }
+        }
+    }
+
+    //Segun el disco que se perdio se reconstruye la informacion
+    switch (disk){
+        case 0:
+            part1 = FaultTolerance::recoverData(part2, part3, parity);
+            return part1;
+        case 1:
+            part2 = FaultTolerance::recoverData(part1, part3, parity);
+            return part2;
+        case 2:
+            part3 = FaultTolerance::recoverData(part1, part2, parity);
+            return part3;
+        case 3:
+            std::vector<byte> vector1(part1.begin(), part1.end());
+            std::vector<byte> vector2(part2.begin(), part2.end());
+            std::vector<byte> vector3(part3.begin(), part3.end());
+            std::vector<byte> parityVector = FaultTolerance::calculateParity(vector1, vector2, vector3);
+            std::string parityString(parityVector.begin(), parityVector.end());
+            return parityString;
+    }
 }

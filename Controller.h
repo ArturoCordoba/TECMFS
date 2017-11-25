@@ -22,12 +22,16 @@ public:
 
     std::string getVideo(std::string name);
 
+    void addDisk(sf::TcpSocket *socket);
+
 private:
     int parityDisc = 0;
 
     int getParityDisk();
 
     std::string getPart(std::string name, int diskNum);
+
+    void restoreDisk(int diskNum);
 
 };
 

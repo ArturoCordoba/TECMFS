@@ -12,16 +12,13 @@ std::vector<byte> VideoHandler::receiveVideo(sf::TcpSocket *client) {
     std::vector<byte> vector;
 
     //Se espera el mensaje con el video enviado por el cliente
-    while (true) {
-        sf::Packet receivePacket;
-        std::string receiveString;
+    sf::Packet receivePacket;
+    std::string receiveString;
 
-        //Se recibe un packet con un string del video
-        if (client->receive(receivePacket) == sf::Socket::Done) {
-            receivePacket >> receiveString;
-            vector = std::vector<byte>(receiveString.begin(), receiveString.end());
-            break;
-        }
+    //Se recibe un packet con un string del video
+    if (client->receive(receivePacket) == sf::Socket::Done) {
+        receivePacket >> receiveString;
+        vector = std::vector<byte>(receiveString.begin(), receiveString.end());
     }
 
     return vector;

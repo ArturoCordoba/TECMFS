@@ -19,8 +19,7 @@ int main(int argc, char const *argv[]) {
     listener.listen(PORT);
     selector.add(listener);
 
-    bool done = false;
-    while(!done) {
+    while(true) {
         if(selector.wait()) {
 
             //Se aceptan nuevos clientes
@@ -32,12 +31,8 @@ int main(int argc, char const *argv[]) {
                 if (socket->receive(packet) == sf::Socket::Done)
                     packet >> id;
                 if (id == "Disk") {
-                    cout << "Se ha identificado un disco nuevo" << endl;
-                    disks->insertAtEnd(socket);
+                    controller.addDisk(socket);
                     selector.add(*socket);
-
-                    if(disks->getSize() == 4)
-                        DataBase::createTable();
 
                 } else {
                     cout << "Se ha conectado un nuevo cliente!" << endl;
