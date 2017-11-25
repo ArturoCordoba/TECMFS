@@ -33,7 +33,6 @@ void Controller::sendParts(std::vector<byte> data, std::string filename) {
         if(i == parityDisk){
             packet << name + "_parity";
             packet << std::string(parity.begin(), parity.end());
-            Singleton::getDisks()->getElement(i)->getData()->send(packet);
             diskParity = std::to_string(i);
 
         //Al disco actual no le corresponde la paridad

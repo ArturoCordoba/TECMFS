@@ -9,6 +9,8 @@ using namespace std;
 typedef unsigned char byte;
 
 int main(int argc, char const *argv[]) {
+    std::cout << "IP: " << sf::IpAddress::getLocalAddress() << std::endl;
+
     Controller controller = Controller();
     sf::TcpListener listener;
     sf::SocketSelector selector;
